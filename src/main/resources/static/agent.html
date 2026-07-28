@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Support Agent Dashboard to process customer tickets and resolve incidents.">
+    <title>Support Agent Dashboard - HelpDesk Pro</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS (Relative path) -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .table-responsive {
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        .table {
+            color: var(--text-primary);
+            border-color: var(--border-color);
+            margin-bottom: 0;
+        }
+        .table th {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-family: var(--font-heading);
+            font-weight: 600;
+            border-bottom-width: 1px;
+            padding: 1rem;
+        }
+        .table td {
+            padding: 1rem;
+            vertical-align: middle;
+            background-color: var(--bg-secondary);
+        }
+        .modal-content {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+        }
+        .modal-header {
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+        }
+        .comment-box {
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent-color);
+        }
+        .comment-box.internal {
+            border-left: 4px solid #ffc107;
+            background-color: rgba(255, 193, 7, 0.05);
+        }
+        .comment-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 py-3">
+        <div class="container-fluid">
+            <span class="navbar-brand h1 mb-0" style="font-family: var(--font-heading); font-weight: 700;">HelpDesk Pro</span>
+            <div class="d-flex align-items-center">
+                <!-- Notification Bell -->
+                <button onclick="openNotificationsModal()" class="btn btn-outline-light btn-sm me-3 position-relative">
+                    🔔 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifUnreadCount" style="display: none;">0</span>
+                </button>
+                <span class="text-white-50 me-3" id="userDisplayName">Support Agent</span>
+                <button id="themeToggleBtn" class="btn btn-outline-light btn-sm me-3">🌙</button>
+                <button onclick="handleLogout()" class="btn btn-danger btn-sm">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Body Grid -->
+    <div class="container my-5 fade-in-up">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 style="font-weight: 800; font-family: var(--font-heading);">Agent Console</h1>
+                <p class="text-secondary">Manage and resolve tickets assigned to your department queue.</p>
+            </div>
+        </div>
+
+        <!-- Info Cards -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card premium-card p-4">
+                    <h3 class="text-muted h6 text-uppercase mb-2">My Assigned Tickets</h3>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="h2 mb-0" id="assignedTicketsCount" style="font-weight: 700;">0</span>
+                        <span class="badge bg-primary">Assigned</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card premium-card p-4">
+                    <h3 class="text-muted h6 text-uppercase mb-2">My Department Queue</h3>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="h2 mb-0" id="deptQueueCount" style="font-weight: 700;">0</span>
+                        <span class="badge bg-warning text-dark">Open Queue</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card premium-card p-4">
+                    <h3 class="text-muted h6 text-uppercase mb-2">My Resolutions</h3>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="h2 mb-0" id="resolvedTicketsCount" style="font-weight: 700;">0</span>
+                        <span class="badge bg-success">Resolved</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <div class="card premium-card p-4">
+                    <h3 class="h6 text-uppercase text-muted mb-4" style="font-family: var(--font-heading); font-weight: 700;">My Incident Statuses</h3>
+                    <div style="position: relative; height: 230px;">
+                        <canvas id="agentStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card premium-card p-4">
+                    <h3 class="h6 text-uppercase text-muted mb-4" style="font-family: var(--font-heading); font-weight: 700;">Incidents by Priority</h3>
+                    <div style="position: relative; height: 230px;">
+                        <canvas id="agentPriorityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ticket Console -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card premium-card p-4">
+                    <h2 class="h5 mb-4" style="font-family: var(--font-heading); font-weight: 700;">Service Desk Tickets Queue</h2>
+
+                    <!-- Search and filters -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="agentSearchInput" placeholder="Search by title, description, customer..." onkeyup="handleAgentSearch(event)">
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Customer</th>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Assignee</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agentTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <span class="text-secondary mb-2 mb-sm-0" id="agentPaginationInfo">Showing 0 to 0 of 0 entries</span>
+                        <nav>
+                            <ul class="pagination mb-0" id="agentPaginationControls">
+                                <!-- Dynamic pagination items -->
+                            </ul>
+                        </nav>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Process Modal -->
+    <div class="modal fade" id="agentProcessModal" tabindex="-1" aria-labelledby="agentProcessModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="agentProcessModalLabel" style="font-family: var(--font-heading); font-weight: 700;">Process Support Incident</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: var(--bs-close-white-filter, none);"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-8">
+                            <h4 class="fw-bold mb-2" id="detailTicketTitle"></h4>
+                            <p class="text-secondary" style="white-space: pre-wrap;" id="detailTicketDesc"></p>
+                            
+                            <div class="mt-4" id="detailTicketAttachmentsGroup" style="display: none;">
+                                <h5 class="h6 text-uppercase text-muted mb-2">Attachments</h5>
+                                <div id="detailTicketAttachmentsContainer" class="d-flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4" style="background-color: var(--bg-tertiary); border-radius: var(--border-radius); padding: 1.2rem;">
+                            <h5 class="h6 text-uppercase text-muted mb-3">Ticket Information</h5>
+                            <div class="mb-2"><strong>ID:</strong> <span id="detailTicketId"></span></div>
+                            <div class="mb-2"><strong>Customer:</strong> <span id="detailTicketCustomer"></span></div>
+                            <div class="mb-2"><strong>Status:</strong> <span class="badge" id="detailTicketStatus"></span></div>
+                            <div class="mb-2"><strong>Priority:</strong> <span class="badge" id="detailTicketPriority"></span></div>
+                            <div class="mb-2"><strong>Category:</strong> <span id="detailTicketCategory"></span></div>
+                            <div class="mb-2"><strong>Department:</strong> <span id="detailTicketDept">-</span></div>
+                            <div class="mb-2"><strong>Assignee:</strong> <span id="detailTicketAssignee">-</span></div>
+                            <div class="mb-2"><strong>Submitted:</strong> <span id="detailTicketDate"></span></div>
+                            
+                            <div class="mt-4" id="detailTicketActions">
+                                <!-- Claim / Resolve / Transfer buttons -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transfer Department Form Group -->
+                    <div id="transferFormGroup" class="card p-3 mb-4" style="display: none; background-color: var(--bg-tertiary); border: 1px solid var(--border-color);">
+                        <h6 class="fw-bold mb-2">Select Transfer Target Department</h6>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" id="modalTransferDeptSelect"></select>
+                            <button class="btn btn-primary btn-sm py-1 px-3" onclick="confirmTransfer()">Confirm Transfer</button>
+                            <button class="btn btn-secondary btn-sm py-1 px-2" onclick="toggleTransferForm(false)">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Resolve Ticket Form Group -->
+                    <div id="resolveFormGroup" class="card p-3 mb-4" style="display: none; background-color: var(--bg-tertiary); border: 1px solid var(--border-color);">
+                        <h6 class="fw-bold mb-2">Resolution details (sent to customer)</h6>
+                        <textarea class="form-control form-control-sm mb-2" id="modalResolutionText" rows="2" required placeholder="Describe how the problem was resolved..."></textarea>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-success btn-sm py-1 px-3" onclick="confirmResolve()">Confirm Resolution</button>
+                            <button class="btn btn-secondary btn-sm py-1 px-2" onclick="toggleResolveForm(false)">Cancel</button>
+                        </div>
+                    </div>
+
+                    <hr style="border-color: var(--border-color);">
+
+                    <h5 class="fw-bold mb-3">Incident Correspondence</h5>
+                    <div id="commentsContainer" class="mb-4" style="max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
+                        <!-- Comment history -->
+                    </div>
+
+                    <!-- Add Comment Form -->
+                    <form id="commentForm">
+                        <div class="mb-3">
+                            <label for="newCommentText" class="form-label fw-semibold">Add Reply</label>
+                            <textarea class="form-control" id="newCommentText" rows="3" required placeholder="Type your response..."></textarea>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="modalInternalNote">
+                                <label class="form-check-label fw-semibold text-warning" for="modalInternalNote">⚠️ Internal Note (Confidential to Staff)</label>
+                            </div>
+                            <button type="submit" class="btn btn-premium btn-sm py-2 px-4">Post Message</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notificationsModalLabel" style="font-family: var(--font-heading); font-weight: 700;">Alerts & Notifications</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: var(--bs-close-white-filter, none);"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-secondary" id="notifSummaryText">No unread notifications</span>
+                        <button class="btn btn-link btn-sm text-decoration-none text-info" onclick="markAllNotificationsRead()">Mark all as read</button>
+                    </div>
+                    <div id="notificationsContainer" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader Wrapper -->
+    <div id="loaderWrapper" class="loader-wrapper">
+        <div class="spinner-premium"></div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom Scripts (Relative paths) -->
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        let currentUserId = null;
+        let currentCompanyId = null;
+        let currentPage = 0;
+        const pageSize = 10;
+        let searchQuery = "";
+        let activeTicketId = null;
+        let currentUserDeptId = null;
+
+        // Chart References
+        let agentStatusChartRef = null;
+        let agentPriorityChartRef = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuthentication();
+            const fullName = localStorage.getItem('fullName');
+            if (fullName) {
+                document.getElementById('userDisplayName').textContent = `${fullName} (Agent)`;
+            }
+
+            currentUserId = localStorage.getItem('userId');
+            currentCompanyId = localStorage.getItem('companyId');
+            if (currentUserId) {
+                loadAgentDeptInfo();
+                loadTickets();
+                loadDepartmentsList();
+            }
+        });
+
+        // Load Agent's own department info to calculate "Department Queue"
+        async function loadAgentDeptInfo() {
+            try {
+                const response = await apiRequest(`/users/${currentUserId}`);
+                if (response.success && response.data) {
+                    if (response.data.department) {
+                        currentUserDeptId = response.data.department.id;
+                        loadTickets(); // Reload with correct department count
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading agent details:", err);
+            }
+        }
+
+        async function loadTickets() {
+            if (!currentUserId || !currentCompanyId) return;
+            try {
+                const response = await apiRequest(`/tickets?userId=${currentUserId}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&size=${pageSize}`);
+                if (response.success && response.data) {
+                    renderTicketsTable(response.data.content);
+                    renderPagination(response.data);
+                    
+                    // Summarize counts in cards
+                    const allTicketsRes = await apiRequest(`/tickets?userId=${currentUserId}&size=1000`);
+                    if (allTicketsRes.success && allTicketsRes.data) {
+                        const allTickets = allTicketsRes.data.content;
+                        
+                        // 1. My Assigned Tickets
+                        const myAssigned = allTickets.filter(t => t.agent && t.agent.id == currentUserId && (t.status === 'ASSIGNED' || t.status === 'IN_PROGRESS'));
+                        document.getElementById('assignedTicketsCount').textContent = myAssigned.length;
+                        
+                        // 2. My Resolutions
+                        const myResolutions = allTickets.filter(t => t.agent && t.agent.id == currentUserId && t.status === 'RESOLVED');
+                        document.getElementById('resolvedTicketsCount').textContent = myResolutions.length;
+                        
+                        // 3. Department Queue (Tickets assigned to agent's department but unassigned)
+                        let queueCount = 0;
+                        if (currentUserDeptId) {
+                            queueCount = allTickets.filter(t => t.department && t.department.id == currentUserDeptId && !t.agent).length;
+                        } else {
+                            queueCount = allTickets.filter(t => !t.agent).length;
+                        }
+                        document.getElementById('deptQueueCount').textContent = queueCount;
+
+                        buildAgentCharts(allTickets.filter(t => t.agent && t.agent.id == currentUserId));
+                    }
+                    loadUnreadNotificationCount();
+                }
+            } catch (err) {
+                console.error("Error loading tickets queue:", err);
+            }
+        }
+
+        async function loadUnreadNotificationCount() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/notifications/user/${currentUserId}/unread-count`);
+                if (response.success) {
+                    const badge = document.getElementById('notifUnreadCount');
+                    if (response.data > 0) {
+                        badge.textContent = response.data;
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                console.error("Count error:", err);
+            }
+        }
+
+        async function openNotificationsModal() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/notifications/user/${currentUserId}`);
+                if (response.success && response.data) {
+                    const container = document.getElementById('notificationsContainer');
+                    container.innerHTML = "";
+                    const list = response.data;
+                    
+                    if (list.length === 0) {
+                        container.innerHTML = `<p class="text-secondary text-center py-3">You don't have any notifications yet.</p>`;
+                        document.getElementById('notifSummaryText').textContent = "0 notifications";
+                    } else {
+                        const unread = list.filter(n => !n.read).length;
+                        document.getElementById('notifSummaryText').textContent = `${unread} unread notifications`;
+                        
+                        list.forEach(n => {
+                            const item = document.createElement('div');
+                            item.className = `p-3 mb-2 rounded border-start border-4`;
+                            item.style.backgroundColor = n.read ? 'rgba(255,255,255,0.02)' : 'rgba(99, 102, 241, 0.08)';
+                            item.style.border = '1px solid ' + (n.read ? 'var(--border-color)' : 'rgba(99, 102, 241, 0.2)');
+                            item.style.borderLeft = `4px solid ${n.read ? '#64748b' : '#6366f1'}`;
+                            
+                            item.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div style="font-size: 0.9rem;">${escapeHtml(n.message)}</div>
+                                    ${!n.read ? `<button class="btn btn-link btn-sm text-info p-0 text-decoration-none" onclick="markNotificationRead(${n.id}, event)">✓</button>` : ''}
+                                </div>
+                                <div class="text-muted mt-2" style="font-size: 0.75rem;">${new Date(n.createdAt).toLocaleString()}</div>
+                            `;
+                            container.appendChild(item);
+                        });
+                    }
+
+                    const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
+                    modal.show();
+                }
+            } catch (err) {
+                console.error("Open notif modal error:", err);
+            }
+        }
+
+        async function markNotificationRead(id, event) {
+            if (event) event.stopPropagation();
+            try {
+                const response = await apiRequest(`/notifications/${id}/read`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    await loadUnreadNotificationCount();
+                    const res = await apiRequest(`/notifications/user/${currentUserId}`);
+                    if (res.success && res.data) {
+                        const container = document.getElementById('notificationsContainer');
+                        container.innerHTML = "";
+                        const list = res.data;
+                        const unread = list.filter(n => !n.read).length;
+                        document.getElementById('notifSummaryText').textContent = `${unread} unread notifications`;
+                        
+                        list.forEach(n => {
+                            const item = document.createElement('div');
+                            item.className = `p-3 mb-2 rounded border-start border-4`;
+                            item.style.backgroundColor = n.read ? 'rgba(255,255,255,0.02)' : 'rgba(99, 102, 241, 0.08)';
+                            item.style.border = '1px solid ' + (n.read ? 'var(--border-color)' : 'rgba(99, 102, 241, 0.2)');
+                            item.style.borderLeft = `4px solid ${n.read ? '#64748b' : '#6366f1'}`;
+                            item.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div style="font-size: 0.9rem;">${escapeHtml(n.message)}</div>
+                                    ${!n.read ? `<button class="btn btn-link btn-sm text-info p-0 text-decoration-none" onclick="markNotificationRead(${n.id}, event)">✓</button>` : ''}
+                                </div>
+                                <div class="text-muted mt-2" style="font-size: 0.75rem;">${new Date(n.createdAt).toLocaleString()}</div>
+                            `;
+                            container.appendChild(item);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Mark read error:", err);
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/notifications/user/${currentUserId}/read-all`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast("All notifications marked as read", "success");
+                    await loadUnreadNotificationCount();
+                    const modalElement = document.getElementById('notificationsModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                }
+            } catch (err) {
+                console.error("Mark all read error:", err);
+            }
+        }
+
+        function buildAgentCharts(assignedTickets) {
+            const statuses = { ASSIGNED: 0, IN_PROGRESS: 0, RESOLVED: 0, CLOSED: 0 };
+            assignedTickets.forEach(t => {
+                if (statuses[t.status] !== undefined) statuses[t.status]++;
+            });
+
+            const priorities = { LOW: 0, MEDIUM: 0, HIGH: 0, URGENT: 0 };
+            assignedTickets.forEach(t => {
+                if (priorities[t.priority] !== undefined) priorities[t.priority]++;
+            });
+
+            renderAgentStatusChart(statuses);
+            renderAgentPriorityChart(priorities);
+        }
+
+        function renderAgentStatusChart(statusData) {
+            const ctx = document.getElementById('agentStatusChart').getContext('2d');
+            if (agentStatusChartRef) {
+                agentStatusChartRef.destroy();
+            }
+
+            agentStatusChartRef = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(statusData),
+                    datasets: [{
+                        data: Object.values(statusData),
+                        backgroundColor: ['#2563eb', '#06b6d4', '#16a34a', '#1e293b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderAgentPriorityChart(priorityData) {
+            const ctx = document.getElementById('agentPriorityChart').getContext('2d');
+            if (agentPriorityChartRef) {
+                agentPriorityChartRef.destroy();
+            }
+
+            agentPriorityChartRef = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(priorityData),
+                    datasets: [{
+                        data: Object.values(priorityData),
+                        backgroundColor: ['#64748b', '#06b6d4', '#eab308', '#ef4444'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTicketsTable(tickets) {
+            const tbody = document.getElementById('agentTableBody');
+            tbody.innerHTML = "";
+
+            if (!tickets || tickets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-secondary py-4">No support tickets in queue.</td></tr>`;
+                return;
+            }
+
+            tickets.forEach(ticket => {
+                const tr = document.createElement('tr');
+                const customerName = ticket.customer ? ticket.customer.fullName : 'General';
+                const assigneeName = ticket.agent ? ticket.agent.fullName : 'Unassigned';
+                
+                tr.innerHTML = `
+                    <td>${ticket.id}</td>
+                    <td class="fw-semibold">${escapeHtml(customerName)}</td>
+                    <td class="fw-semibold">${escapeHtml(ticket.title)}</td>
+                    <td>${escapeHtml(ticket.category || 'General')}</td>
+                    <td>
+                        <span class="badge ${getPriorityBadgeClass(ticket.priority)}">
+                            ${ticket.priority}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${getStatusBadgeClass(ticket.status)}">
+                            ${ticket.status}
+                        </span>
+                    </td>
+                    <td class="text-secondary">${escapeHtml(assigneeName)}</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm" onclick="openProcessModal(${ticket.id})">Process</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderPagination(pageData) {
+            const info = document.getElementById('agentPaginationInfo');
+            const totalElements = pageData.totalElements;
+            const size = pageData.size;
+            const number = pageData.number;
+            const totalPages = pageData.totalPages;
+
+            const startIdx = totalElements === 0 ? 0 : (number * size) + 1;
+            const endIdx = Math.min((number + 1) * size, totalElements);
+            info.textContent = `Showing ${startIdx} to ${endIdx} of ${totalElements} entries`;
+
+            const ul = document.getElementById('agentPaginationControls');
+            ul.innerHTML = "";
+
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${number === 0 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<button class="page-link" onclick="changePage(${number - 1})">Previous</button>`;
+            ul.appendChild(prevLi);
+
+            for (let i = 0; i < totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === number ? 'active' : ''}`;
+                li.innerHTML = `<button class="page-link" onclick="changePage(${i})">${i + 1}</button>`;
+                ul.appendChild(li);
+            }
+
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${number >= totalPages - 1 ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<button class="page-link" onclick="changePage(${number + 1})">Next</button>`;
+            ul.appendChild(nextLi);
+        }
+
+        function changePage(pageIndex) {
+            currentPage = pageIndex;
+            loadTickets();
+        }
+
+        function handleAgentSearch(event) {
+            searchQuery = document.getElementById('agentSearchInput').value;
+            currentPage = 0;
+            loadTickets();
+        }
+
+        // Details Modal & Process Flow
+        async function openProcessModal(ticketId) {
+            activeTicketId = ticketId;
+            toggleTransferForm(false);
+            toggleResolveForm(false);
+
+            try {
+                const detailRes = await apiRequest(`/tickets/${ticketId}`);
+                if (detailRes.success && detailRes.data) {
+                    const ticket = detailRes.data;
+                    document.getElementById('detailTicketTitle').textContent = ticket.title;
+                    document.getElementById('detailTicketDesc').textContent = ticket.description;
+                    document.getElementById('detailTicketId').textContent = ticket.id;
+                    document.getElementById('detailTicketCustomer').textContent = ticket.customer ? ticket.customer.fullName : '-';
+                    document.getElementById('detailTicketCategory').textContent = ticket.category || 'General';
+                    document.getElementById('detailTicketDate').textContent = new Date(ticket.createdAt).toLocaleString();
+                    document.getElementById('detailTicketDept').textContent = ticket.department ? ticket.department.name : 'Unassigned';
+                    document.getElementById('detailTicketAssignee').textContent = ticket.agent ? ticket.agent.fullName : 'Unassigned';
+
+                    const statusBadge = document.getElementById('detailTicketStatus');
+                    statusBadge.textContent = ticket.status;
+                    statusBadge.className = 'badge ' + getStatusBadgeClass(ticket.status);
+                    
+                    const priorityBadge = document.getElementById('detailTicketPriority');
+                    priorityBadge.textContent = ticket.priority;
+                    priorityBadge.className = 'badge ' + getPriorityBadgeClass(ticket.priority);
+
+                    const actionsDiv = document.getElementById('detailTicketActions');
+                    actionsDiv.innerHTML = "";
+                    
+                    if (ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED') {
+                        if (!ticket.agent || ticket.agent.id != currentUserId) {
+                            actionsDiv.innerHTML += `<button class="btn btn-primary w-100 py-2 mb-2" onclick="claimTicket(${ticket.id})">Claim Ticket</button>`;
+                        }
+                        if (ticket.agent && ticket.agent.id == currentUserId) {
+                            actionsDiv.innerHTML += `<button class="btn btn-success w-100 py-2 mb-2" onclick="toggleResolveForm(true)">Resolve Ticket</button>`;
+                        }
+                        actionsDiv.innerHTML += `<button class="btn btn-outline-warning w-100 py-2" onclick="toggleTransferForm(true)">Transfer Department</button>`;
+                    } else if (ticket.status === 'RESOLVED') {
+                        actionsDiv.innerHTML = `<button class="btn btn-outline-danger w-100 py-2" onclick="closeTicket(${ticket.id})">Close Ticket</button>`;
+                    } else if (ticket.status === 'CLOSED') {
+                        actionsDiv.innerHTML = `<button class="btn btn-outline-warning w-100 py-2" onclick="reopenTicket(${ticket.id})">Reopen Ticket</button>`;
+                    }
+
+                    document.getElementById('newCommentText').value = "";
+                    document.getElementById('modalInternalNote').checked = false;
+
+                    await loadAttachments(ticketId);
+                    await loadComments(ticketId);
+
+                    const modal = new bootstrap.Modal(document.getElementById('agentProcessModal'));
+                    modal.show();
+                }
+            } catch (err) {
+                console.error("Open process modal error:", err);
+            }
+        }
+
+        async function loadComments(ticketId) {
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/comments?userId=${currentUserId}`);
+                if (response.success && response.data) {
+                    const container = document.getElementById('commentsContainer');
+                    container.innerHTML = "";
+                    const comments = response.data;
+
+                    if (comments.length === 0) {
+                        container.innerHTML = `<p class="text-secondary text-center">No correspondence history found.</p>`;
+                        return;
+                    }
+
+                    comments.forEach(c => {
+                        const box = document.createElement('div');
+                        box.className = 'comment-box' + (c.internalNote ? ' internal' : '');
+                        
+                        let author = c.user.fullName;
+                        if (c.user.id == currentUserId) author += " (You)";
+                        if (c.internalNote) author += " [INTERNAL NOTE]";
+
+                        box.innerHTML = `
+                            <div class="comment-meta">
+                                <strong class="${c.internalNote ? 'text-warning' : ''}">${escapeHtml(author)}</strong> &bull; ${new Date(c.createdAt).toLocaleString()}
+                            </div>
+                            <div class="comment-text">${escapeHtml(c.commentText)}</div>
+                        `;
+                        container.appendChild(box);
+                    });
+
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (err) {
+                console.error("Error loading comments:", err);
+            }
+        }
+
+        document.getElementById('commentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!activeTicketId || !currentUserId) return;
+
+            const text = document.getElementById('newCommentText').value;
+            const isInternal = document.getElementById('modalInternalNote').checked;
+
+            try {
+                const response = await apiRequest(`/tickets/${activeTicketId}/comments?userId=${currentUserId}&commentText=${encodeURIComponent(text)}&internalNote=${isInternal}`, {
+                    method: 'POST'
+                });
+                if (response.success) {
+                    document.getElementById('newCommentText').value = "";
+                    document.getElementById('modalInternalNote').checked = false;
+                    await loadComments(activeTicketId);
+                }
+            } catch (err) {
+                console.error("Post comment error:", err);
+            }
+        });
+
+        // 1. Claim Ticket Action
+        async function claimTicket(ticketId) {
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/assign?agentId=${currentUserId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket claimed successfully', 'success');
+                    const modalElement = document.getElementById('agentProcessModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Claim ticket error:", err);
+            }
+        }
+
+        // 2. Resolve Ticket Actions
+        function toggleResolveForm(show) {
+            document.getElementById('resolveFormGroup').style.display = show ? 'block' : 'none';
+            document.getElementById('modalResolutionText').value = "";
+        }
+
+        async function confirmResolve() {
+            const resolution = document.getElementById('modalResolutionText').value;
+            if (!resolution.trim()) {
+                showToast("Resolution details are required", "warning");
+                return;
+            }
+
+            try {
+                const response = await apiRequest(`/tickets/${activeTicketId}/resolve?resolutionComment=${encodeURIComponent(resolution)}&userId=${currentUserId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket marked as resolved', 'success');
+                    const modalElement = document.getElementById('agentProcessModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Resolve ticket error:", err);
+            }
+        }
+
+        // 3. Transfer Ticket Actions
+        function toggleTransferForm(show) {
+            document.getElementById('transferFormGroup').style.display = show ? 'block' : 'none';
+        }
+
+        async function loadDepartmentsList() {
+            if (!currentCompanyId) return;
+            try {
+                const response = await apiRequest(`/departments/company/${currentCompanyId}`);
+                if (response.success && response.data) {
+                    const select = document.getElementById('modalTransferDeptSelect');
+                    select.innerHTML = "";
+                    response.data.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.id;
+                        opt.textContent = d.name;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading departments for transfer select:", err);
+            }
+        }
+
+        async function confirmTransfer() {
+            const deptId = document.getElementById('modalTransferDeptSelect').value;
+            if (!deptId) return;
+
+            try {
+                const response = await apiRequest(`/tickets/${activeTicketId}/transfer?departmentId=${deptId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket transferred to department queue successfully', 'success');
+                    const modalElement = document.getElementById('agentProcessModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Transfer department error:", err);
+            }
+        }
+
+        async function closeTicket(ticketId) {
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/close?userId=${currentUserId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket closed successfully', 'success');
+                    const modalElement = document.getElementById('agentProcessModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Close error:", err);
+            }
+        }
+
+        async function reopenTicket(ticketId) {
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/reopen?userId=${currentUserId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket reopened successfully', 'success');
+                    const modalElement = document.getElementById('agentProcessModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Reopen error:", err);
+            }
+        }
+
+        function getPriorityBadgeClass(priority) {
+            if (priority === 'LOW') return 'bg-secondary';
+            if (priority === 'MEDIUM') return 'bg-info text-dark';
+            if (priority === 'HIGH') return 'bg-warning text-dark';
+            if (priority === 'URGENT') return 'bg-danger';
+            return 'bg-secondary';
+        }
+
+        function getStatusBadgeClass(status) {
+            if (status === 'OPEN') return 'bg-light text-dark border';
+            if (status === 'ASSIGNED') return 'bg-primary';
+            if (status === 'IN_PROGRESS') return 'bg-info text-dark';
+            if (status === 'RESOLVED') return 'bg-success';
+            if (status === 'CLOSED') return 'bg-dark';
+            return 'bg-secondary';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function escapeQuote(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        async function loadAttachments(ticketId) {
+            try {
+                const response = await apiRequest(`/attachments/ticket/${ticketId}`);
+                const group = document.getElementById('detailTicketAttachmentsGroup');
+                const container = document.getElementById('detailTicketAttachmentsContainer');
+                container.innerHTML = "";
+                if (response.success && response.data && response.data.length > 0) {
+                    group.style.display = "block";
+                    response.data.forEach(att => {
+                        const btn = document.createElement('button');
+                        btn.className = "btn btn-sm btn-outline-secondary d-flex align-items-center gap-1";
+                        btn.style.borderColor = "var(--border-color)";
+                        btn.style.color = "var(--text-primary)";
+                        btn.onclick = () => downloadAttachment(att.id, att.fileName);
+                        btn.innerHTML = `📎 ${escapeHtml(att.fileName)} <span class="text-muted" style="font-size:0.75rem;">(${(att.fileSize/1024).toFixed(1)} KB)</span>`;
+                        container.appendChild(btn);
+                    });
+                } else {
+                    group.style.display = "none";
+                }
+            } catch (err) {
+                console.error("Error loading attachments:", err);
+            }
+        }
+
+        async function downloadAttachment(attachmentId, fileName) {
+            try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch(`/api/attachments/download/${attachmentId}`, {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    showToast("Failed to download attachment", "danger");
+                }
+            } catch (err) {
+                console.error("Download error:", err);
+            }
+        }
+    </script>
+</body>
+</html>

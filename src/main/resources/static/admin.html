@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Super Admin Dashboard to manage globally registered tenant companies, licensing, and roles.">
+    <title>Super Admin Dashboard - HelpDesk Pro</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS (Relative path) -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .table-responsive {
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        .table {
+            color: var(--text-primary);
+            border-color: var(--border-color);
+            margin-bottom: 0;
+        }
+        .table th {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-family: var(--font-heading);
+            font-weight: 600;
+            border-bottom-width: 1px;
+            padding: 1rem;
+        }
+        .table td {
+            padding: 1rem;
+            vertical-align: middle;
+            background-color: var(--bg-secondary);
+        }
+        .modal-content {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+        }
+        .modal-header {
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 py-3">
+        <div class="container-fluid">
+            <span class="navbar-brand h1 mb-0" style="font-family: var(--font-heading); font-weight: 700;">HelpDesk Pro</span>
+            <div class="d-flex align-items-center">
+                <span class="text-white-50 me-3" id="userDisplayName">Super Admin</span>
+                <button id="themeToggleBtn" class="btn btn-outline-light btn-sm me-3">🌙</button>
+                <button onclick="handleLogout()" class="btn btn-danger btn-sm">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Body Grid -->
+    <div class="container my-5 fade-in-up">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 style="font-weight: 800; font-family: var(--font-heading);">System Administration Panel</h1>
+                <p class="text-secondary">Global management dashboard for SaaS tenants and systems.</p>
+            </div>
+        </div>
+
+        <!-- Info Cards -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card premium-card p-4">
+                    <h3 class="text-muted h6 text-uppercase mb-2">Total Tenants</h3>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="h2 mb-0" id="totalTenantsCount" style="font-weight: 700;">0</span>
+                        <span class="badge bg-primary">Registered</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card premium-card p-4">
+                    <h3 class="text-muted h6 text-uppercase mb-2">Global Users</h3>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="h2 mb-0" id="globalUsersCount" style="font-weight: 700;">0</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card premium-card p-4">
+                    <h3 class="text-muted h6 text-uppercase mb-2">System Performance</h3>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="h2 mb-0" style="font-weight: 700;">Optimal</span>
+                        <span class="badge bg-info">Healthy</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-8 mx-auto">
+                <div class="card premium-card p-4">
+                    <h3 class="h5 mb-4" style="font-family: var(--font-heading); font-weight: 700;">Tenant User Distribution</h3>
+                    <div style="position: relative; height: 300px;">
+                        <canvas id="tenantUserChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Company CRUD Panel -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card premium-card p-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+                        <h2 class="h4 mb-0" style="font-family: var(--font-heading); font-weight: 700;">Tenant Companies Management</h2>
+                        <div class="d-flex gap-2 mt-2 mt-sm-0">
+                            <button class="btn btn-outline-warning py-2 px-3" onclick="triggerDataGeneration()">⚡ Generate Demo Data</button>
+                            <button class="btn btn-premium py-2 px-3" data-bs-toggle="modal" data-bs-target="#companyModal" onclick="openAddModal()">+ Add Company</button>
+                        </div>
+                    </div>
+
+                    <!-- Search and Filters -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="companySearchInput" placeholder="Search companies..." onkeyup="handleSearch(event)">
+                        </div>
+                    </div>
+
+                    <!-- Companies Table -->
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Company Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Address</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="companyTableBody">
+                                <!-- Data injected via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination Controls -->
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <span class="text-secondary mb-2 mb-sm-0" id="paginationInfo">Showing 0 to 0 of 0 entries</span>
+                        <nav>
+                            <ul class="pagination mb-0" id="paginationControls">
+                                <!-- Dynamic pagination items -->
+                            </ul>
+                        </nav>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Company Modal -->
+    <div class="modal fade" id="companyModal" tabindex="-1" aria-labelledby="companyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="companyModalLabel" style="font-family: var(--font-heading); font-weight: 700;">Add Company</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: var(--bs-close-white-filter, none);"></button>
+                </div>
+                <form id="companyForm">
+                    <input type="hidden" id="modalCompanyId">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="modalCompanyName" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="modalCompanyName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalCompanyEmail" class="form-label">Support Email Address</label>
+                            <input type="email" class="form-control" id="modalCompanyEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalCompanyPhone" class="form-label">Phone Number</label>
+                            <input type="text" class="form-control" id="modalCompanyPhone">
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalCompanyAddress" class="form-label">Address</label>
+                            <textarea class="form-control" id="modalCompanyAddress" rows="3"></textarea>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="modalCompanyActive" checked>
+                            <label class="form-check-label" for="modalCompanyActive">Active Status</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-premium" id="modalSubmitBtn">Save Tenant</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader Wrapper -->
+    <div id="loaderWrapper" class="loader-wrapper">
+        <div class="spinner-premium"></div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom Scripts (Relative paths) -->
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        let currentPage = 0;
+        const pageSize = 10;
+        let searchQuery = "";
+        let tenantChart = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuthentication();
+            const fullName = localStorage.getItem('fullName');
+            if (fullName) {
+                document.getElementById('userDisplayName').textContent = `${fullName} (Super Admin)`;
+            }
+            loadCompanies();
+            loadChartsData();
+        });
+
+        async function loadCompanies() {
+            try {
+                const response = await apiRequest(`/companies?search=${encodeURIComponent(searchQuery)}&page=${currentPage}&size=${pageSize}`);
+                if (response.success && response.data) {
+                    renderTable(response.data.content);
+                    renderPagination(response.data);
+                    document.getElementById('totalTenantsCount').textContent = response.data.totalElements;
+                }
+            } catch (err) {
+                console.error("Error loading companies list", err);
+            }
+        }
+
+        async function loadChartsData() {
+            try {
+                // Fetch all companies to compute distribution
+                const res = await apiRequest('/companies?size=1000');
+                if (res.success && res.data) {
+                    const companies = res.data.content;
+                    const labels = [];
+                    const dataCounts = [];
+                    let globalUsers = 0;
+
+                    for (let i = 0; i < companies.length; i++) {
+                        const comp = companies[i];
+                        // Fetch users for this company
+                        const userRes = await apiRequest(`/users/company/${comp.id}`);
+                        if (userRes.success && userRes.data) {
+                            labels.push(comp.name);
+                            dataCounts.push(userRes.data.length);
+                            globalUsers += userRes.data.length;
+                        }
+                    }
+
+                    // Seeding super admins count manually (usually 1 default)
+                    globalUsers += 1;
+                    document.getElementById('globalUsersCount').textContent = globalUsers;
+
+                    renderChart(labels, dataCounts);
+                }
+            } catch (err) {
+                console.error("Error loading admin charts:", err);
+            }
+        }
+
+        function renderChart(labels, dataCounts) {
+            const ctx = document.getElementById('tenantUserChart').getContext('2d');
+            if (tenantChart) {
+                tenantChart.destroy();
+            }
+
+            // Sleek dark-mode aesthetic styling
+            tenantChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Registered Users',
+                        data: dataCounts,
+                        backgroundColor: '#6366f1',
+                        borderColor: '#4f46e5',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTable(companies) {
+            const tbody = document.getElementById('companyTableBody');
+            tbody.innerHTML = "";
+
+            if (!companies || companies.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-secondary py-4">No tenant companies found</td></tr>`;
+                return;
+            }
+
+            companies.forEach(company => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${company.id}</td>
+                    <td class="fw-semibold">${escapeHtml(company.name)}</td>
+                    <td>${escapeHtml(company.email)}</td>
+                    <td>${escapeHtml(company.phone || '-')}</td>
+                    <td>${escapeHtml(company.address || '-')}</td>
+                    <td>
+                        <span class="badge ${company.active ? 'bg-success' : 'bg-danger'}">
+                            ${company.active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm me-1" onclick="openEditModal(${company.id}, '${escapeQuote(company.name)}', '${escapeQuote(company.email)}', '${escapeQuote(company.phone || '')}', '${escapeQuote(company.address || '')}', ${company.active})">Edit</button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="handleDelete(${company.id})">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderPagination(pageData) {
+            const info = document.getElementById('paginationInfo');
+            const totalElements = pageData.totalElements;
+            const size = pageData.size;
+            const number = pageData.number;
+            const totalPages = pageData.totalPages;
+
+            const startIdx = totalElements === 0 ? 0 : (number * size) + 1;
+            const endIdx = Math.min((number + 1) * size, totalElements);
+            info.textContent = `Showing ${startIdx} to ${endIdx} of ${totalElements} entries`;
+
+            const ul = document.getElementById('paginationControls');
+            ul.innerHTML = "";
+
+            // Prev Button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${number === 0 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<button class="page-link" onclick="changePage(${number - 1})">Previous</button>`;
+            ul.appendChild(prevLi);
+
+            // Page numbers
+            for (let i = 0; i < totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === number ? 'active' : ''}`;
+                li.innerHTML = `<button class="page-link" onclick="changePage(${i})">${i + 1}</button>`;
+                ul.appendChild(li);
+            }
+
+            // Next Button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${number >= totalPages - 1 ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<button class="page-link" onclick="changePage(${number + 1})">Next</button>`;
+            ul.appendChild(nextLi);
+        }
+
+        function changePage(pageIndex) {
+            currentPage = pageIndex;
+            loadCompanies();
+        }
+
+        function handleSearch(event) {
+            searchQuery = document.getElementById('companySearchInput').value;
+            currentPage = 0;
+            loadCompanies();
+        }
+
+        function openAddModal() {
+            document.getElementById('companyModalLabel').textContent = "Add Company";
+            document.getElementById('modalCompanyId').value = "";
+            document.getElementById('modalCompanyName').value = "";
+            document.getElementById('modalCompanyEmail').value = "";
+            document.getElementById('modalCompanyPhone').value = "";
+            document.getElementById('modalCompanyAddress').value = "";
+            document.getElementById('modalCompanyActive').checked = true;
+            document.getElementById('modalSubmitBtn').textContent = "Save Tenant";
+        }
+
+        function openEditModal(id, name, email, phone, address, active) {
+            document.getElementById('companyModalLabel').textContent = "Edit Company";
+            document.getElementById('modalCompanyId').value = id;
+            document.getElementById('modalCompanyName').value = name;
+            document.getElementById('modalCompanyEmail').value = email;
+            document.getElementById('modalCompanyPhone').value = phone;
+            document.getElementById('modalCompanyAddress').value = address;
+            document.getElementById('modalCompanyActive').checked = active;
+            document.getElementById('modalSubmitBtn').textContent = "Update Tenant";
+            
+            const modal = new bootstrap.Modal(document.getElementById('companyModal'));
+            modal.show();
+        }
+
+        // Form submit handler
+        document.getElementById('companyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('modalCompanyId').value;
+            const name = document.getElementById('modalCompanyName').value;
+            const email = document.getElementById('modalCompanyEmail').value;
+            const phone = document.getElementById('modalCompanyPhone').value;
+            const address = document.getElementById('modalCompanyAddress').value;
+            const active = document.getElementById('modalCompanyActive').checked;
+
+            const payload = { name, email, phone, address, active };
+            const method = id ? 'PUT' : 'POST';
+            const endpoint = id ? `/companies/${id}` : '/companies';
+
+            try {
+                const response = await apiRequest(endpoint, {
+                    method,
+                    body: JSON.stringify(payload)
+                });
+                if (response.success) {
+                    showToast(id ? 'Company updated successfully' : 'Company added successfully', 'success');
+                    const modalElement = document.getElementById('companyModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                    modal.hide();
+                    
+                    loadCompanies();
+                    loadChartsData();
+                }
+            } catch (err) {
+                console.error("Save company error:", err);
+            }
+        });
+
+        async function handleDelete(id) {
+            if (!confirm("Are you sure you want to delete this company? All associated users and tickets might be affected.")) {
+                return;
+            }
+
+            try {
+                const response = await apiRequest(`/companies/${id}`, {
+                    method: 'DELETE'
+                });
+                if (response.success) {
+                    showToast('Company deleted successfully', 'success');
+                    loadCompanies();
+                    loadChartsData();
+                }
+            } catch (err) {
+                console.error("Delete company error:", err);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function escapeQuote(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        async function triggerDataGeneration() {
+            if (!confirm("Are you sure you want to generate demo/mock data? This will populate the system with new test companies, departments, agents, customers, tickets, and comment timelines.")) {
+                return;
+            }
+
+            try {
+                const response = await apiRequest('/admin/generate-data', {
+                    method: 'POST'
+                });
+                if (response.success) {
+                    showToast(response.data || "Demo data generated successfully!", "success");
+                    // Reload company table and charts data
+                    loadCompanies();
+                    loadChartsData();
+                } else {
+                    showToast("Failed to generate demo data", "danger");
+                }
+            } catch (err) {
+                console.error("Data generation error:", err);
+                showToast("Error generating demo data", "danger");
+            }
+        }
+    </script>
+</body>
+</html>

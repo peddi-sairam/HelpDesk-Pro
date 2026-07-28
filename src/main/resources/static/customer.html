@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Customer Portal to submit and track support requests.">
+    <title>Customer Portal - HelpDesk Pro</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS (Relative path) -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .table-responsive {
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        .table {
+            color: var(--text-primary);
+            border-color: var(--border-color);
+            margin-bottom: 0;
+        }
+        .table th {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-family: var(--font-heading);
+            font-weight: 600;
+            border-bottom-width: 1px;
+            padding: 1rem;
+        }
+        .table td {
+            padding: 1rem;
+            vertical-align: middle;
+            background-color: var(--bg-secondary);
+        }
+        .modal-content {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+        }
+        .modal-header {
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+        }
+        .comment-box {
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent-color);
+        }
+        .comment-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 py-3">
+        <div class="container-fluid">
+            <span class="navbar-brand h1 mb-0" style="font-family: var(--font-heading); font-weight: 700;">HelpDesk Pro</span>
+            <div class="d-flex align-items-center">
+                <!-- Notification Bell -->
+                <button onclick="openNotificationsModal()" class="btn btn-outline-light btn-sm me-3 position-relative">
+                    🔔 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifUnreadCount" style="display: none;">0</span>
+                </button>
+                <span class="text-white-50 me-3" id="userDisplayName">Customer</span>
+                <button id="themeToggleBtn" class="btn btn-outline-light btn-sm me-3">🌙</button>
+                <button onclick="handleLogout()" class="btn btn-danger btn-sm">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Body Grid -->
+    <div class="container my-5 fade-in-up">
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-between align-items-center flex-wrap">
+                <div class="mb-3 mb-sm-0">
+                    <h1 style="font-weight: 800; font-family: var(--font-heading);">Support Dashboard</h1>
+                    <p class="text-secondary">Submit support tickets, track issues, and get help from agents.</p>
+                </div>
+                <button class="btn btn-premium py-2 px-4" data-bs-toggle="modal" data-bs-target="#submitTicketModal" onclick="openSubmitTicketModal()">+ Submit Ticket</button>
+            </div>
+        </div>
+
+        <!-- Info Grid (Split between Metrics Cards and Doughnut chart) -->
+        <div class="row g-4 mb-5">
+            <div class="col-lg-8">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card premium-card p-4 h-100">
+                            <h3 class="text-muted h6 text-uppercase mb-2">My Open Tickets</h3>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="h2 mb-0" id="openTicketsCount" style="font-weight: 700;">0</span>
+                                <span class="badge bg-primary">Open</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card premium-card p-4 h-100">
+                            <h3 class="text-muted h6 text-uppercase mb-2">Resolved Tickets</h3>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="h2 mb-0" id="resolvedTicketsCount" style="font-weight: 700;">0</span>
+                                <span class="badge bg-success">Resolved</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card premium-card p-4 h-100">
+                            <h3 class="text-muted h6 text-uppercase mb-2">Total Tickets</h3>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="h2 mb-0" id="totalTicketsCount" style="font-weight: 700;">0</span>
+                                <span class="badge bg-secondary">Submitted</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ticket History Doughnut Chart -->
+            <div class="col-lg-4">
+                <div class="card premium-card p-4">
+                    <h3 class="h6 text-uppercase text-muted mb-3" style="font-family: var(--font-heading); font-weight: 700;">Ticket History</h3>
+                    <div style="position: relative; height: 110px;">
+                        <canvas id="customerChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tickets Listing -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card premium-card p-4">
+                    <h2 class="h5 mb-4" style="font-family: var(--font-heading); font-weight: 700;">My Support Incidents</h2>
+                    
+                    <!-- Search and filters -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="ticketSearchInput" placeholder="Search by title, description..." onkeyup="handleTicketSearch(event)">
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ticketTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <span class="text-secondary mb-2 mb-sm-0" id="ticketPaginationInfo">Showing 0 to 0 of 0 entries</span>
+                        <nav>
+                            <ul class="pagination mb-0" id="ticketPaginationControls">
+                                <!-- Dynamic pagination items -->
+                            </ul>
+                        </nav>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Ticket Modal -->
+    <div class="modal fade" id="submitTicketModal" tabindex="-1" aria-labelledby="submitTicketModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="submitTicketModalLabel" style="font-family: var(--font-heading); font-weight: 700;">Submit Support Ticket</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: var(--bs-close-white-filter, none);"></button>
+                </div>
+                <form id="submitTicketForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="modalTicketTitle" class="form-label">Ticket Title</label>
+                            <input type="text" class="form-control" id="modalTicketTitle" required max="150" placeholder="Brief summary of the issue">
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalTicketDesc" class="form-label">Problem Description</label>
+                            <textarea class="form-control" id="modalTicketDesc" rows="4" required placeholder="Provide detail steps to reproduce the issue"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalTicketCategory" class="form-label">Category</label>
+                            <select class="form-select" id="modalTicketCategory" required>
+                                <option value="Software">Software Incident</option>
+                                <option value="Hardware">Hardware / Equipment</option>
+                                <option value="Network">Network & WiFi</option>
+                                <option value="Billing">Billing & Licences</option>
+                                <option value="General">General Inquiry</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalTicketPriority" class="form-label">Urgency / Priority</label>
+                            <select class="form-select" id="modalTicketPriority" required>
+                                <option value="LOW">Low (Non-blocking)</option>
+                                <option value="MEDIUM" selected>Medium (Standard request)</option>
+                                <option value="HIGH">High (Impacts work progress)</option>
+                                <option value="URGENT">Urgent (System offline)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalTicketFile" class="form-label">Attach File (Optional)</label>
+                            <input type="file" class="form-control" id="modalTicketFile">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-premium">Submit Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ticket Details & Comments Modal -->
+    <div class="modal fade" id="ticketDetailsModal" tabindex="-1" aria-labelledby="ticketDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ticketDetailsModalLabel" style="font-family: var(--font-heading); font-weight: 700;">Incident Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: var(--bs-close-white-filter, none);"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-8">
+                            <h4 class="fw-bold mb-2" id="detailTicketTitle"></h4>
+                            <p class="text-secondary" style="white-space: pre-wrap;" id="detailTicketDesc"></p>
+                            
+                            <div class="mt-4" id="detailTicketAttachmentsGroup" style="display: none;">
+                                <h5 class="h6 text-uppercase text-muted mb-2">Attachments</h5>
+                                <div id="detailTicketAttachmentsContainer" class="d-flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4" style="background-color: var(--bg-tertiary); border-radius: var(--border-radius); padding: 1.2rem;">
+                            <h5 class="h6 text-uppercase text-muted mb-3">Ticket Information</h5>
+                            <div class="mb-2"><strong>ID:</strong> <span id="detailTicketId"></span></div>
+                            <div class="mb-2"><strong>Status:</strong> <span class="badge" id="detailTicketStatus"></span></div>
+                            <div class="mb-2"><strong>Priority:</strong> <span class="badge" id="detailTicketPriority"></span></div>
+                            <div class="mb-2"><strong>Category:</strong> <span id="detailTicketCategory"></span></div>
+                            <div class="mb-2"><strong>Assignee:</strong> <span id="detailTicketAssignee">-</span></div>
+                            <div class="mb-2"><strong>Submitted:</strong> <span id="detailTicketDate"></span></div>
+                            <div class="mt-4" id="detailTicketActions">
+                                <!-- Close / Reopen buttons -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr style="border-color: var(--border-color);">
+
+                    <h5 class="fw-bold mb-3">Comments History</h5>
+                    <div id="commentsContainer" class="mb-4" style="max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
+                        <!-- Comments list loaded dynamically -->
+                    </div>
+
+                    <!-- Add Comment Form -->
+                    <form id="commentForm">
+                        <div class="mb-3">
+                            <label for="newCommentText" class="form-label fw-semibold">Add Reply</label>
+                            <textarea class="form-control" id="newCommentText" rows="3" required placeholder="Type your response to support staff here..."></textarea>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-premium btn-sm py-2 px-3">Post Reply</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notificationsModalLabel" style="font-family: var(--font-heading); font-weight: 700;">Alerts & Notifications</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: var(--bs-close-white-filter, none);"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-secondary" id="notifSummaryText">No unread notifications</span>
+                        <button class="btn btn-link btn-sm text-decoration-none text-info" onclick="markAllNotificationsRead()">Mark all as read</button>
+                    </div>
+                    <div id="notificationsContainer" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader Wrapper -->
+    <div id="loaderWrapper" class="loader-wrapper">
+        <div class="spinner-premium"></div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom Scripts (Relative paths) -->
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        let currentUserId = null;
+        let currentPage = 0;
+        const pageSize = 10;
+        let searchQuery = "";
+        let activeTicketId = null;
+        let customerChartRef = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuthentication();
+            const fullName = localStorage.getItem('fullName');
+            if (fullName) {
+                document.getElementById('userDisplayName').textContent = fullName;
+            }
+
+            currentUserId = localStorage.getItem('userId');
+            if (currentUserId) {
+                loadTickets();
+            }
+        });
+
+        async function loadTickets() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/tickets?userId=${currentUserId}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&size=${pageSize}`);
+                if (response.success && response.data) {
+                    renderTicketsTable(response.data.content);
+                    renderPagination(response.data);
+                    
+                    // Summarize ticket counts
+                    const allTicketsRes = await apiRequest(`/tickets?userId=${currentUserId}&size=1000`);
+                    if (allTicketsRes.success && allTicketsRes.data) {
+                        const allTickets = allTicketsRes.data.content;
+                        document.getElementById('totalTicketsCount').textContent = allTickets.length;
+                        
+                        const openCount = allTickets.filter(t => t.status === 'OPEN' || t.status === 'ASSIGNED' || t.status === 'IN_PROGRESS').length;
+                        document.getElementById('openTicketsCount').textContent = openCount;
+                        
+                        const resolvedCount = allTickets.filter(t => t.status === 'RESOLVED').length;
+                        document.getElementById('resolvedTicketsCount').textContent = resolvedCount;
+
+                        const closedCount = allTickets.filter(t => t.status === 'CLOSED').length;
+
+                        buildCustomerChart(openCount, resolvedCount, closedCount);
+                    }
+                    loadUnreadNotificationCount();
+                }
+            } catch (err) {
+                console.error("Error loading tickets:", err);
+            }
+        }
+
+        async function loadUnreadNotificationCount() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/notifications/user/${currentUserId}/unread-count`);
+                if (response.success) {
+                    const badge = document.getElementById('notifUnreadCount');
+                    if (response.data > 0) {
+                        badge.textContent = response.data;
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                console.error("Count error:", err);
+            }
+        }
+
+        async function openNotificationsModal() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/notifications/user/${currentUserId}`);
+                if (response.success && response.data) {
+                    const container = document.getElementById('notificationsContainer');
+                    container.innerHTML = "";
+                    const list = response.data;
+                    
+                    if (list.length === 0) {
+                        container.innerHTML = `<p class="text-secondary text-center py-3">You don't have any notifications yet.</p>`;
+                        document.getElementById('notifSummaryText').textContent = "0 notifications";
+                    } else {
+                        const unread = list.filter(n => !n.read).length;
+                        document.getElementById('notifSummaryText').textContent = `${unread} unread notifications`;
+                        
+                        list.forEach(n => {
+                            const item = document.createElement('div');
+                            item.className = `p-3 mb-2 rounded border-start border-4`;
+                            item.style.backgroundColor = n.read ? 'rgba(255,255,255,0.02)' : 'rgba(99, 102, 241, 0.08)';
+                            item.style.border = '1px solid ' + (n.read ? 'var(--border-color)' : 'rgba(99, 102, 241, 0.2)');
+                            item.style.borderLeft = `4px solid ${n.read ? '#64748b' : '#6366f1'}`;
+                            
+                            item.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div style="font-size: 0.9rem;">${escapeHtml(n.message)}</div>
+                                    ${!n.read ? `<button class="btn btn-link btn-sm text-info p-0 text-decoration-none" onclick="markNotificationRead(${n.id}, event)">✓</button>` : ''}
+                                </div>
+                                <div class="text-muted mt-2" style="font-size: 0.75rem;">${new Date(n.createdAt).toLocaleString()}</div>
+                            `;
+                            container.appendChild(item);
+                        });
+                    }
+
+                    const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
+                    modal.show();
+                }
+            } catch (err) {
+                console.error("Open notif modal error:", err);
+            }
+        }
+
+        async function markNotificationRead(id, event) {
+            if (event) event.stopPropagation();
+            try {
+                const response = await apiRequest(`/notifications/${id}/read`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    await loadUnreadNotificationCount();
+                    const res = await apiRequest(`/notifications/user/${currentUserId}`);
+                    if (res.success && res.data) {
+                        const container = document.getElementById('notificationsContainer');
+                        container.innerHTML = "";
+                        const list = res.data;
+                        const unread = list.filter(n => !n.read).length;
+                        document.getElementById('notifSummaryText').textContent = `${unread} unread notifications`;
+                        
+                        list.forEach(n => {
+                            const item = document.createElement('div');
+                            item.className = `p-3 mb-2 rounded border-start border-4`;
+                            item.style.backgroundColor = n.read ? 'rgba(255,255,255,0.02)' : 'rgba(99, 102, 241, 0.08)';
+                            item.style.border = '1px solid ' + (n.read ? 'var(--border-color)' : 'rgba(99, 102, 241, 0.2)');
+                            item.style.borderLeft = `4px solid ${n.read ? '#64748b' : '#6366f1'}`;
+                            item.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div style="font-size: 0.9rem;">${escapeHtml(n.message)}</div>
+                                    ${!n.read ? `<button class="btn btn-link btn-sm text-info p-0 text-decoration-none" onclick="markNotificationRead(${n.id}, event)">✓</button>` : ''}
+                                </div>
+                                <div class="text-muted mt-2" style="font-size: 0.75rem;">${new Date(n.createdAt).toLocaleString()}</div>
+                            `;
+                            container.appendChild(item);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Mark read error:", err);
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            if (!currentUserId) return;
+            try {
+                const response = await apiRequest(`/notifications/user/${currentUserId}/read-all`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast("All notifications marked as read", "success");
+                    await loadUnreadNotificationCount();
+                    const modalElement = document.getElementById('notificationsModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                }
+            } catch (err) {
+                console.error("Mark all read error:", err);
+            }
+        }
+
+        function buildCustomerChart(open, resolved, closed) {
+            const ctx = document.getElementById('customerChart').getContext('2d');
+            if (customerChartRef) {
+                customerChartRef.destroy();
+            }
+
+            customerChartRef = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Open/Active', 'Resolved', 'Closed'],
+                    datasets: [{
+                        data: [open, resolved, closed],
+                        backgroundColor: ['#2563eb', '#16a34a', '#475569'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#94a3b8', boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTicketsTable(tickets) {
+            const tbody = document.getElementById('ticketTableBody');
+            tbody.innerHTML = "";
+
+            if (!tickets || tickets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-secondary py-4">No tickets found. Submit a new ticket to get started.</td></tr>`;
+                return;
+            }
+
+            tickets.forEach(ticket => {
+                const tr = document.createElement('tr');
+                const createdDate = new Date(ticket.createdAt).toLocaleString();
+                
+                tr.innerHTML = `
+                    <td>${ticket.id}</td>
+                    <td class="fw-semibold">${escapeHtml(ticket.title)}</td>
+                    <td>${escapeHtml(ticket.category || 'General')}</td>
+                    <td>
+                        <span class="badge ${getPriorityBadgeClass(ticket.priority)}">
+                            ${ticket.priority}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${getStatusBadgeClass(ticket.status)}">
+                            ${ticket.status}
+                        </span>
+                    </td>
+                    <td class="text-secondary">${createdDate}</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm" onclick="openDetailsModal(${ticket.id})">View Details</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderPagination(pageData) {
+            const info = document.getElementById('ticketPaginationInfo');
+            const totalElements = pageData.totalElements;
+            const size = pageData.size;
+            const number = pageData.number;
+            const totalPages = pageData.totalPages;
+
+            const startIdx = totalElements === 0 ? 0 : (number * size) + 1;
+            const endIdx = Math.min((number + 1) * size, totalElements);
+            info.textContent = `Showing ${startIdx} to ${endIdx} of ${totalElements} entries`;
+
+            const ul = document.getElementById('ticketPaginationControls');
+            ul.innerHTML = "";
+
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${number === 0 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<button class="page-link" onclick="changePage(${number - 1})">Previous</button>`;
+            ul.appendChild(prevLi);
+
+            for (let i = 0; i < totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === number ? 'active' : ''}`;
+                li.innerHTML = `<button class="page-link" onclick="changePage(${i})">${i + 1}</button>`;
+                ul.appendChild(li);
+            }
+
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${number >= totalPages - 1 ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<button class="page-link" onclick="changePage(${number + 1})">Next</button>`;
+            ul.appendChild(nextLi);
+        }
+
+        function changePage(pageIndex) {
+            currentPage = pageIndex;
+            loadTickets();
+        }
+
+        function handleTicketSearch(event) {
+            searchQuery = document.getElementById('ticketSearchInput').value;
+            currentPage = 0;
+            loadTickets();
+        }
+
+        function openSubmitTicketModal() {
+            document.getElementById('modalTicketTitle').value = "";
+            document.getElementById('modalTicketDesc').value = "";
+            document.getElementById('modalTicketCategory').value = "Software";
+            document.getElementById('modalTicketPriority').value = "MEDIUM";
+            document.getElementById('modalTicketFile').value = "";
+        }
+
+        // Submit Ticket Form
+        document.getElementById('submitTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUserId) return;
+
+            const title = document.getElementById('modalTicketTitle').value;
+            const description = document.getElementById('modalTicketDesc').value;
+            const category = document.getElementById('modalTicketCategory').value;
+            const priority = document.getElementById('modalTicketPriority').value;
+            const fileInput = document.getElementById('modalTicketFile');
+
+            const payload = { title, description, category, priority };
+
+            try {
+                const response = await apiRequest(`/tickets?customerId=${currentUserId}`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                if (response.success && response.data) {
+                    const ticketId = response.data.id;
+                    
+                    // Handle file upload if a file is selected
+                    if (fileInput.files && fileInput.files[0]) {
+                        const file = fileInput.files[0];
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        formData.append("ticketId", ticketId);
+
+                        const token = localStorage.getItem('accessToken');
+                        const fileUploadRes = await fetch('/api/attachments/upload', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: formData
+                        });
+                        const fileUploadData = await fileUploadRes.json();
+                        if (!fileUploadData.success) {
+                            showToast('Ticket submitted, but attachment upload failed', 'warning');
+                        }
+                    }
+
+                    showToast('Ticket submitted successfully', 'success');
+                    
+                    const modalElement = document.getElementById('submitTicketModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                    modal.hide();
+                    
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Submit ticket error:", err);
+            }
+        });
+
+        // Details Modal Details & Comments
+        async function openDetailsModal(ticketId) {
+            activeTicketId = ticketId;
+            try {
+                const detailRes = await apiRequest(`/tickets/${ticketId}`);
+                if (detailRes.success && detailRes.data) {
+                    const ticket = detailRes.data;
+                    document.getElementById('detailTicketTitle').textContent = ticket.title;
+                    document.getElementById('detailTicketDesc').textContent = ticket.description;
+                    document.getElementById('detailTicketId').textContent = ticket.id;
+                    document.getElementById('detailTicketCategory').textContent = ticket.category || 'General';
+                    document.getElementById('detailTicketDate').textContent = new Date(ticket.createdAt).toLocaleString();
+                    document.getElementById('detailTicketAssignee').textContent = ticket.agent ? ticket.agent.fullName : 'Awaiting Assignment';
+                    
+                    const statusBadge = document.getElementById('detailTicketStatus');
+                    statusBadge.textContent = ticket.status;
+                    statusBadge.className = 'badge ' + getStatusBadgeClass(ticket.status);
+                    
+                    const priorityBadge = document.getElementById('detailTicketPriority');
+                    priorityBadge.textContent = ticket.priority;
+                    priorityBadge.className = 'badge ' + getPriorityBadgeClass(ticket.priority);
+
+                    const actionsDiv = document.getElementById('detailTicketActions');
+                    actionsDiv.innerHTML = "";
+                    if (ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED') {
+                        actionsDiv.innerHTML = `<button class="btn btn-outline-danger w-100 py-2" onclick="handleCloseTicket(${ticket.id})">Close Ticket</button>`;
+                    } else if (ticket.status === 'CLOSED') {
+                        actionsDiv.innerHTML = `<button class="btn btn-outline-warning w-100 py-2" onclick="handleReopenTicket(${ticket.id})">Reopen Ticket</button>`;
+                    }
+                    
+                    document.getElementById('newCommentText').value = "";
+
+                    await loadAttachments(ticketId);
+                    await loadComments(ticketId);
+
+                    const modal = new bootstrap.Modal(document.getElementById('ticketDetailsModal'));
+                    modal.show();
+                }
+            } catch (err) {
+                console.error("Open details modal error:", err);
+            }
+        }
+
+        async function loadComments(ticketId) {
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/comments?userId=${currentUserId}`);
+                if (response.success && response.data) {
+                    const container = document.getElementById('commentsContainer');
+                    container.innerHTML = "";
+                    const comments = response.data;
+                    
+                    if (comments.length === 0) {
+                        container.innerHTML = `<p class="text-secondary text-center">No comments posted yet.</p>`;
+                        return;
+                    }
+
+                    comments.forEach(c => {
+                        const box = document.createElement('div');
+                        box.className = 'comment-box';
+                        const author = c.user.fullName + (c.user.id == currentUserId ? " (You)" : " (Support Staff)");
+                        box.innerHTML = `
+                            <div class="comment-meta">
+                                <strong>${escapeHtml(author)}</strong> &bull; ${new Date(c.createdAt).toLocaleString()}
+                            </div>
+                            <div class="comment-text">${escapeHtml(c.commentText)}</div>
+                        `;
+                        container.appendChild(box);
+                    });
+
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (err) {
+                console.error("Error loading comments:", err);
+            }
+        }
+
+        document.getElementById('commentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!activeTicketId || !currentUserId) return;
+
+            const text = document.getElementById('newCommentText').value;
+
+            try {
+                const response = await apiRequest(`/tickets/${activeTicketId}/comments?userId=${currentUserId}&commentText=${encodeURIComponent(text)}&internalNote=false`, {
+                    method: 'POST'
+                });
+                if (response.success) {
+                    document.getElementById('newCommentText').value = "";
+                    await loadComments(activeTicketId);
+                }
+            } catch (err) {
+                console.error("Post reply error:", err);
+            }
+        });
+
+        async function handleCloseTicket(ticketId) {
+            if (!confirm("Are you sure you want to close this ticket? It will signify that your issue is resolved.")) return;
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/close?userId=${currentUserId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket closed successfully', 'success');
+                    const modalElement = document.getElementById('ticketDetailsModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Close ticket error:", err);
+            }
+        }
+
+        async function handleReopenTicket(ticketId) {
+            try {
+                const response = await apiRequest(`/tickets/${ticketId}/reopen?userId=${currentUserId}`, {
+                    method: 'PATCH'
+                });
+                if (response.success) {
+                    showToast('Ticket reopened successfully', 'success');
+                    const modalElement = document.getElementById('ticketDetailsModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    loadTickets();
+                }
+            } catch (err) {
+                console.error("Reopen ticket error:", err);
+            }
+        }
+
+        function getPriorityBadgeClass(priority) {
+            if (priority === 'LOW') return 'bg-secondary';
+            if (priority === 'MEDIUM') return 'bg-info text-dark';
+            if (priority === 'HIGH') return 'bg-warning text-dark';
+            if (priority === 'URGENT') return 'bg-danger';
+            return 'bg-secondary';
+        }
+
+        function getStatusBadgeClass(status) {
+            if (status === 'OPEN') return 'bg-light text-dark border';
+            if (status === 'ASSIGNED') return 'bg-primary';
+            if (status === 'IN_PROGRESS') return 'bg-info text-dark';
+            if (status === 'RESOLVED') return 'bg-success';
+            if (status === 'CLOSED') return 'bg-dark';
+            return 'bg-secondary';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function escapeQuote(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        async function loadAttachments(ticketId) {
+            try {
+                const response = await apiRequest(`/attachments/ticket/${ticketId}`);
+                const group = document.getElementById('detailTicketAttachmentsGroup');
+                const container = document.getElementById('detailTicketAttachmentsContainer');
+                container.innerHTML = "";
+                if (response.success && response.data && response.data.length > 0) {
+                    group.style.display = "block";
+                    response.data.forEach(att => {
+                        const btn = document.createElement('button');
+                        btn.className = "btn btn-sm btn-outline-secondary d-flex align-items-center gap-1";
+                        btn.style.borderColor = "var(--border-color)";
+                        btn.style.color = "var(--text-primary)";
+                        btn.onclick = () => downloadAttachment(att.id, att.fileName);
+                        btn.innerHTML = `📎 ${escapeHtml(att.fileName)} <span class="text-muted" style="font-size:0.75rem;">(${(att.fileSize/1024).toFixed(1)} KB)</span>`;
+                        container.appendChild(btn);
+                    });
+                } else {
+                    group.style.display = "none";
+                }
+            } catch (err) {
+                console.error("Error loading attachments:", err);
+            }
+        }
+
+        async function downloadAttachment(attachmentId, fileName) {
+            try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch(`/api/attachments/download/${attachmentId}`, {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    showToast("Failed to download attachment", "danger");
+                }
+            } catch (err) {
+                console.error("Download error:", err);
+            }
+        }
+    </script>
+</body>
+</html>
