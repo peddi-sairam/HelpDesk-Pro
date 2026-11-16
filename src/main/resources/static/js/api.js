@@ -1,6 +1,6 @@
 // HelpDesk Platform - Global API Configuration & Common Utilities
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://helpdesk-pro-howp.onrender.com/api';
 
 // Loading Spinner Functions
 function showLoader() {

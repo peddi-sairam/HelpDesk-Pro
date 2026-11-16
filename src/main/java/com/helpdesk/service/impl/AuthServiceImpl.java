@@ -170,7 +170,7 @@ public class AuthServiceImpl implements AuthService {
         passwordResetTokenRepository.save(resetToken);
 
         // Print reset link to server console for testing/verification
-        String resetLink = "http://localhost:8080/reset-password.html?token=" + token;
+        String resetLink = "https://helpdesk-pro-howp.onrender.com/reset-password.html?token=" + token;
         logger.info("PASSWORD RESET LINK FOR {}: {}", email, resetLink);
         System.out.println("TESTING RESET LINK: " + resetLink);
     }
